@@ -160,15 +160,19 @@ void swapOut(void){
     p->rss -= 1;
     pte_t *pte;
     pte = findVictimPage(p);
+    char *addPage = (char*)PGROUNDUP(P2V(pte));
     if (pte == NULL) // Check if a valid page table entry is found
         panic("not a valid page found");
     int vacantSlot = findVacantSwapSlot();
     int diskBlock = diskBlockNumber(vacantSlot);
     // acquire the lock on the swap slot here 
-    writeToDisk(ROOTDEV, *pte, diskBlock);
+    acquire(&swap_block.lock);
+    writeToDisk(ROOTDEV, addPage, diskBlock);
     swap_block.slots[vacantSlot].is_free = 0;
     swap_block.slots[vacantSlot].page_perm = (int)PTE_FLAGS(pte);
     // release the lock on the swap_slot
+    release(&swap_block.lock);
+    kfree(addPage);
     editPTEentry(pte, diskBlock);
 }
 

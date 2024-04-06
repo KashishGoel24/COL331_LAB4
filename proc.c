@@ -190,7 +190,7 @@ fork(void)
   }
 
   // Copy process state from proc.
-  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz, np)) == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
@@ -555,8 +555,7 @@ struct proc* findVictimProcess(void){
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
-      if((p->state == UNUSED))
-      continue;
+      if((p->state == UNUSED)) {continue;}
       if ((p->rss > maxRss) || (p->rss == maxRss && p->pid < pid_cur)){
         maxRss = p->rss;
         pid_cur = p->pid;
