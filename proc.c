@@ -547,3 +547,64 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+struct proc* findVictimProcess(void){
+    int maxRss = -1; 
+    int pid_cur = -1;
+    struct proc *p = NULL, *p1 = NULL;
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if((p->state == UNUSED))
+      continue;
+      if ((p->rss > maxRss) || (p->rss == maxRss && p->pid < pid_cur)){
+        maxRss = p->rss;
+        pid_cur = p->pid;
+        p1 = p;   
+      }
+    }
+    release(&ptable.lock);
+    return p1;
+}
+
+pte_t* findVictimPage(struct proc *p){
+    pde_t *pgdir = p->pgdir, *pde;
+    pte_t *pgtab, *pte;
+    // uint va;
+    for (int d = 0 ; d < pow(2,10) ; d++){
+        // va = PGADDR((uint)d,0,0);
+        pde = &pgdir[(uint)d];
+        if (*pde & PTE_P){
+            for (int t = 0 ; t < pow(2,10) ; t++){
+                // va = PGADDR((uint)d,(uint)t,0);
+                // pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+                pte = &pgtab[(uint)t];
+                if ((*pte & PTE_P) && !(*pte & PTE_A)){
+                    return pte;
+                }
+            }
+        }
+    }
+    int count = 0, found = 0;
+    pte_t* toReturn = NULL;
+    for (int d = 0 ; d < pow(2,10) ; d++){
+        // va = PGADDR((uint)d,0,0);
+        pde = &pgdir[(uint)d];
+        if (*pde & PTE_P){
+            for (int t = 0 ; t < pow(2,10) ; t++){
+                // va = PGADDR((uint)d,(uint)t,0);
+                // pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+                pte = &pgtab[(uint)t];
+                if ((*pte & PTE_P) && (*pte & PTE_A) && (count%10 == 0)){
+                    if (found == 0){
+                        found = 1;
+                        toReturn = pte;
+                    }
+                    *pte &= ~PTE_A;
+                }
+                count = (count+1)%10;
+            }
+        }
+    }
+    return toReturn;
+}

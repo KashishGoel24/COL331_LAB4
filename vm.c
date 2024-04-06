@@ -223,6 +223,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
   char *mem;
   uint a;
+  struct proc *cur_proc;
 
   if(newsz >= KERNBASE)
     return 0;
@@ -237,6 +238,9 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       deallocuvm(pgdir, newsz, oldsz);
       return 0;
     }
+    // check if needed to acquire lock here on the ptable
+    cur_proc = myproc();
+    cur_proc->rss += 1;
     // update the rss value of the process here 
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){

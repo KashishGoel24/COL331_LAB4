@@ -21,15 +21,39 @@ FUNCTIONS I NEED TO MAKE
 
 
 /*
+SWAP IN
+1. read the cr2 register storing the virtual address of the page that caused the page fault
+2. read the virtual address and using the walkpgdir function, iterate over the page directory and extract the page table entry basically
+3. read the disk block id from it and call the kalloc function
+4. using the vacant page in physical memory allocated by the kalloc functon, write the contents from disk to the vacant page
+5. update the rss value of the process as increase it by 1
+6. update the attributes of the swap slot like marking it free
+7. update the pte entry by writing down the ppn into the entry and changing the value of teh present bit and the page swap bit
+DOUBTTTT -> do we need to update the page access bit ourselves when we swap in?
+*/
+
+
+/*
 WHAT ALL DONE
 1. Make the struct of swap blocks and swap slot in mkfs.c
 2. defined the flag pte_swap in the file mmu.h       ##### check if the address is correct or not
 3. in the main func of mkfs.c, changed the value of the variable nmeta by +1
-4. 
+4. edited the kalloc function to include the call to the kfree function
+5. made the call to swapspace init function in main.c
 */
 
 
 /*
 DOUBTTTTT
 1. Do i neeed to shift the disk block numbers of the log blocks and the inode etc etc blocks
+*/
+
+
+
+/*
+to do:
+1. make an initialisation function for the swap blocks and call that function in the main.c file
+2. make rss update function for fork and no fork
+3. clean up the swap slots once a process ends
+
 */

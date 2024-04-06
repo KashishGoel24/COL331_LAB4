@@ -88,8 +88,12 @@ kfree(char *v)
 char*
 kalloc(void)
 {
-  struct run *r;
+  if (kmem.num_free_pages == 0){
+    swapOut();
+  }
 
+  struct run *r;
+  
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
@@ -98,6 +102,17 @@ kalloc(void)
     kmem.freelist = r->next;
     kmem.num_free_pages-=1;
   }
+  // adding code here for page swap out and then kalloc again
+  // else{
+  //   swapOut();                    // swapped out the page 
+  //   // find the vacant page all over again
+  //   r = kmem.freelist;
+  //   if(r)
+  //   {
+  //     kmem.freelist = r->next;
+  //     kmem.num_free_pages-=1;
+  //   }
+  // }
     
   if(kmem.use_lock)
     release(&kmem.lock);

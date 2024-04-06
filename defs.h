@@ -15,6 +15,8 @@ void            binit(void);
 struct buf*     bread(uint, uint);
 void            brelse(struct buf*);
 void            bwrite(struct buf*);
+void            writeToDisk(uint, char*, int);
+void            readFromDiskWriteToMem(uint, char*, uint);
 
 // console.c
 void            consoleinit(void);
@@ -88,6 +90,11 @@ void            log_write(struct buf*);
 void            begin_op();
 void            end_op();
 
+//mkfs.c
+void            swapSpaceinit(void);
+int             diskBlockNumber(int);
+int             findVacantSwapSlot(void);
+
 // mp.c
 extern int      ismp;
 void            mpinit(void);
@@ -121,7 +128,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-void             print_rss(void);
+void            print_rss(void);
+struct proc*    findVictimProcess(void);
+pte_t*          findVictimPage(struct proc*);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
