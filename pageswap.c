@@ -4,6 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <math.h> 
 
 #include "types.h"
 #include "fs.h"
@@ -13,10 +14,35 @@
 #include "mmu.h"
 #include "proc.h"
 
+// Assuming NSLOTS is defined somewhere
+#define NSLOTS 256
+
 // function 1 -> to find the mapping between index of swap block array and disk block number 
+struct swap_slot {
+  // add a lock here and acquire it when you are writing the contents to it
+  // release the lock once you have written the contents and update
+  int page_perm;
+  int is_free;
+};
+
+struct swap_block {
+    struct swap_slot slots[NSLOTS];
+};
+
+// Global variable
+struct swap_block *swap_block; // Assuming swap_block is defined somewhere
 
 int diskBlockNumber(int arrayindex){
-    return 8*arrayindex + 1;    // check if disk blocks are 0 indexed or 1 indexed
+    return 8*arrayindex + 1;    // check if disk blocks are 1 indexed or 0 indexed
+}
+
+int findVacantSwapSlot(void){
+    for (int i = 0 ; i < NSLOTS ; i++){
+      if (swap_block->slots[i].is_free == 1){
+        return i;
+      }
+    }
+    panic("no vacant swap slot found"); // if no slot found -> for debugging
 }
 
 void writeToDisk(uint dev, char* pg, int blockno){
@@ -40,8 +66,9 @@ void readFromDiskWriteToMem(uint dev, char *pg, uint blockno){
 
 // put this function in proc.c
 struct proc* findVictimProcess(void){
-    int maxRss, pid_cur;
-    struct proc *p = 0, *p1 = 0;
+    int maxRss = -1; // Initialize maxRss and pid_cur
+    int pid_cur = -1;
+    struct proc *p = NULL, *p1 = NULL;
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
@@ -54,7 +81,7 @@ struct proc* findVictimProcess(void){
         }
     }
     release(&ptable.lock);
-    return p;
+    return p1;
 }
 
 // write the function to find the victim page given the process and hence its pgdir address
@@ -84,7 +111,7 @@ pte_t* findVictimPage(struct proc *p){
     }
     // if we did not find the approproate page then we make 10 percent of the pages as not accessed and then select the victim page accordingly
     int count = 0, found = 0;
-    pte_t* toReturn;
+    pte_t* toReturn = NULL;
     for (int d = 0 ; d < pow(2,10) ; d++){
         va = PGADDR((uint)d,0,0);
         pde = &pgdir[PDX(va)];
@@ -105,4 +132,41 @@ pte_t* findVictimPage(struct proc *p){
         }
     }
     return toReturn;
+}
+
+void editPTEentry(pte_t* pte, int diskblock){
+    // need to replace the ppn with the disk block id
+    // need to unset the present bit
+    // need to set the swap bit
+    uint flags = PTE_FLAGS(pte); // Get flags from existing PTE
+    uint new_entry = ((uint)diskblock << 12) | PTE_P | (flags & ~PTE_SWAP);   // Use bitwise OR operator to set PTE_P and unset PTE_SWAP
+    *pte = (pte_t)new_entry;
+}
+
+void swapOut(void){
+    // find a victim process
+    // find the victim page of teh process using the vicim process
+    // find the vacant slot in the swap block array
+    // fetch the page using the return valie of th victim page process
+    // then use this in the write to disk function
+    // need to update the rss value of the process
+    // also need to edit the attributes of the swap slot
+    // need to edit the pte entry of the victim page 
+    struct proc *p;
+    p = findVictimProcess();
+    if (p == NULL) // Check if a valid process is found
+        return;
+    p->rss -= 1;
+    pte_t *pte;
+    pte = findVictimPage(p);
+    if (pte == NULL) // Check if a valid page table entry is found
+        return;
+    int vacantSlot = findVacantSwapSlot();
+    if (vacantSlot == -1) // Check if a vacant slot is found
+        return;
+    int diskBlock = diskBlockNumber(vacantSlot);
+    // acquire the lock on the swap slot here 
+    // swap_block->slots.is_free = 0; // write down the permissions in the pte_entry here in the is_perm attribute of the swap slot
+    // release the lock on the swap_slot
+    editPTEentry(pte, diskBlock);
 }

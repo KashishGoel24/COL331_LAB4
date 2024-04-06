@@ -43,6 +43,8 @@ uint ialloc(ushort type);
 void iappend(uint inum, void *p, int n);
 
 struct swap_slot {
+  // add a lock here and acquire it when you are writing the contents to it
+  // release the lock once you have written the contents and updae
   int page_perm;
   int is_free;
 };
