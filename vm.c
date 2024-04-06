@@ -262,6 +262,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
   pte_t *pte;
   uint a, pa;
+  struct proc *cur_proc;
 
   if(newsz >= oldsz)
     return oldsz;
@@ -277,6 +278,8 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
+      cur_proc = myproc();
+      cur_proc->rss -= 1;
       *pte = 0;
     }
   }
@@ -318,12 +321,13 @@ clearpteu(pde_t *pgdir, char *uva)
 // Given a parent process's page table, create a copy
 // of it for a child.
 pde_t*
-copyuvm(pde_t *pgdir, uint sz)
+copyuvm(pde_t *pgdir, uint sz, struct proc *childproc)
 {
   pde_t *d;
   pte_t *pte;
   uint pa, i, flags;
   char *mem;
+  struct proc *p;
 
   if((d = setupkvm()) == 0)
     return 0;
@@ -336,6 +340,8 @@ copyuvm(pde_t *pgdir, uint sz)
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto bad;
+    p = myproc();
+    childproc->rss = p->rss;
     memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
       kfree(mem);
