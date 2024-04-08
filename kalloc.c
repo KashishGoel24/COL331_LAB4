@@ -85,16 +85,15 @@ kfree(char *v)
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
-char*
-kalloc(void)
-{
+char* kalloc(void){
   struct run *r;
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
-
+  int count1 = 0;
   while (!r){
+    
     if (kmem.use_lock){
       release(&kmem.lock);
     }
@@ -102,33 +101,18 @@ kalloc(void)
     if(kmem.use_lock)
       acquire(&kmem.lock);
     r = kmem.freelist;
+    count1+=1;
   }
   kmem.freelist = r->next;
   kmem.num_free_pages-=1;
-  // if(r)
-  // {
-  //   kmem.freelist = r->next;
-  //   kmem.num_free_pages-=1;
-  // }
-  // else{
-  //   if (kmem.use_lock){
-  //     release(&kmem.lock);
-  //   }
-  //   swapOut();
-  //   if(kmem.use_lock)
-  //     acquire(&kmem.lock);
-  //   r = kmem.freelist;
-  //   kmem.freelist = r->next;
-  //   kmem.num_free_pages-=1;
-  // }
     
   if(kmem.use_lock)
     release(&kmem.lock);
+  
   return (char*)r;
 }
-uint 
-num_of_FreePages(void)
-{
+
+uint num_of_FreePages(void){
   acquire(&kmem.lock);
 
   uint num_free_pages = kmem.num_free_pages;

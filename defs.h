@@ -17,12 +17,19 @@ void            brelse(struct buf*);
 void            bwrite(struct buf*);
 void            writeToDisk(uint, char*, int);
 void            readFromDiskWriteToMem(uint, char*, uint);
+void            swapSpaceinit(void);
+int             diskBlockNumber(int);
+int             findVacantSwapSlot(void);
+void            updateSwapSlot(int , int , int );
+int             getPerm(int );
+void            clear_swap_slot(pte_t*);
 
 // console.c
 void            consoleinit(void);
 void            cprintf(char*, ...);
 void            consoleintr(int(*)(void));
 void            panic(char*) __attribute__((noreturn));
+void            printint(int, int, int);
 
 // exec.c
 int             exec(char*, char**);
@@ -91,13 +98,15 @@ void            begin_op();
 void            end_op();
 
 //mkfs.c
-void            swapSpaceinit(void);
-int             diskBlockNumber(int);
-int             findVacantSwapSlot(void);
 
 // mp.c
 extern int      ismp;
 void            mpinit(void);
+
+// pageswap.c
+// void            editPTEentry(pte_t*, int);
+void            swapOut(void);
+void            pgfault_handler(void);
 
 // picirq.c
 void            picenable(int);
@@ -130,7 +139,7 @@ void            wakeup(void*);
 void            yield(void);
 void            print_rss(void);
 struct proc*    findVictimProcess(void);
-pte_t*          findVictimPage(struct proc*);
+pte_t*   findVictimPage(struct proc*);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -188,14 +197,18 @@ pde_t*          setupkvm(void);
 char*           uva2ka(pde_t*, char*);
 int             allocuvm(pde_t*, uint, uint);
 int             deallocuvm(pde_t*, uint, uint);
+int             deallocuvm2(struct proc* , pde_t*, uint , uint );
 void            freevm(pde_t*);
+void            freevm2(struct proc* ,pde_t*);
 void            inituvm(pde_t*, char*, uint);
 int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
-pde_t*          copyuvm(pde_t*, uint);
+pde_t*          copyuvm(pde_t*, uint, struct proc*);
 void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
-void            clearpteu(pde_t *pgdir, char *uva);
+void            clearpteu(pde_t*, char *);
+pte_t*          walkpgdir(pde_t*, const void *, int );
+void            killZombie(pde_t*, int);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

@@ -21,8 +21,7 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 void
-pinit(void)
-{
+pinit(void){
   initlock(&ptable.lock, "ptable");
 }
 
@@ -35,8 +34,7 @@ cpuid() {
 // Must be called with interrupts disabled to avoid the caller being
 // rescheduled between reading lapicid and running through the loop.
 struct cpu*
-mycpu(void)
-{
+mycpu(void){
   int apicid, i;
   
   if(readeflags()&FL_IF)
@@ -71,8 +69,7 @@ myproc(void) {
 // state required to run in the kernel.
 // Otherwise return 0.
 static struct proc*
-allocproc(void)
-{
+allocproc(void){
   struct proc *p;
   char *sp;
 
@@ -96,6 +93,7 @@ found:
     p->state = UNUSED;
     return 0;
   }
+  p->rss = PGSIZE;
   sp = p->kstack + KSTACKSIZE;
 
   // Leave room for trap frame.
@@ -118,8 +116,7 @@ found:
 //PAGEBREAK: 32
 // Set up first user process.
 void
-userinit(void)
-{
+userinit(void){
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
@@ -156,8 +153,7 @@ userinit(void)
 // Grow current process's memory by n bytes.
 // Return 0 on success, -1 on failure.
 int
-growproc(int n)
-{
+growproc(int n){
   uint sz;
   struct proc *curproc = myproc();
 
@@ -178,8 +174,7 @@ growproc(int n)
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
 int
-fork(void)
-{
+fork(void){
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
@@ -225,8 +220,7 @@ fork(void)
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
 void
-exit(void)
-{
+exit(void){
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
@@ -270,8 +264,7 @@ exit(void)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(void)
-{
+wait(void){
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
@@ -286,10 +279,12 @@ wait(void)
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
+        killZombie(p->pgdir, p->sz);
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+        // freevm(p->pgdir);
+        freevm2(p, p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -312,8 +307,7 @@ wait(void)
 }
 
 //Print the resident size of all the current procs 
-void print_rss()
-{
+void print_rss(){
   struct proc *p = 0;
   cprintf("PrintingRSS\n");
   acquire(&ptable.lock);
@@ -335,8 +329,7 @@ void print_rss()
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
 void
-scheduler(void)
-{
+scheduler(void){
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -378,11 +371,9 @@ scheduler(void)
 // break in the few places where a lock is held but
 // there's no process.
 void
-sched(void)
-{
+sched(void){
   int intena;
   struct proc *p = myproc();
-
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
   if(mycpu()->ncli != 1)
@@ -398,8 +389,7 @@ sched(void)
 
 // Give up the CPU for one scheduling round.
 void
-yield(void)
-{
+yield(void){
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
   sched();
@@ -409,8 +399,7 @@ yield(void)
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
 void
-forkret(void)
-{
+forkret(void){
   static int first = 1;
   // Still holding ptable.lock from scheduler.
   release(&ptable.lock);
@@ -430,8 +419,7 @@ forkret(void)
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 void
-sleep(void *chan, struct spinlock *lk)
-{
+sleep(void *chan, struct spinlock *lk){
   struct proc *p = myproc();
   
   if(p == 0)
@@ -450,6 +438,7 @@ sleep(void *chan, struct spinlock *lk)
     acquire(&ptable.lock);  //DOC: sleeplock1
     release(lk);
   }
+
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
@@ -470,8 +459,7 @@ sleep(void *chan, struct spinlock *lk)
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
 static void
-wakeup1(void *chan)
-{
+wakeup1(void *chan){
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
@@ -481,8 +469,7 @@ wakeup1(void *chan)
 
 // Wake up all processes sleeping on chan.
 void
-wakeup(void *chan)
-{
+wakeup(void *chan){
   acquire(&ptable.lock);
   wakeup1(chan);
   release(&ptable.lock);
@@ -492,8 +479,7 @@ wakeup(void *chan)
 // Process won't exit until it returns
 // to user space (see trap in trap.c).
 int
-kill(int pid)
-{
+kill(int pid){
   struct proc *p;
 
   acquire(&ptable.lock);
@@ -516,8 +502,7 @@ kill(int pid)
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
 void
-procdump(void)
-{
+procdump(void){
   static char *states[] = {
   [UNUSED]    "unused",
   [EMBRYO]    "embryo",
@@ -549,17 +534,17 @@ procdump(void)
 }
 
 struct proc* findVictimProcess(void){
-    int maxRss = -1; 
-    int pid_cur = -1;
-    struct proc *p = NULL, *p1 = NULL;
+    int maxRss = 0; 
+    int pid_cur = 0;
+    struct proc *p = 0, *p1 = 0;
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
+    for (int i = 0 ; i < NPROC ; i++){
+      p = &ptable.proc[i];
       if((p->state == UNUSED)) {continue;}
       if ((p->rss > maxRss) || (p->rss == maxRss && p->pid < pid_cur)){
         maxRss = p->rss;
         pid_cur = p->pid;
-        p1 = p;   
+        p1 = &ptable.proc[i];   
       }
     }
     release(&ptable.lock);
@@ -567,43 +552,29 @@ struct proc* findVictimProcess(void){
 }
 
 pte_t* findVictimPage(struct proc *p){
-    pde_t *pgdir = p->pgdir, *pde;
-    pte_t *pgtab, *pte;
-    // uint va;
-    for (int d = 0 ; d < pow(2,10) ; d++){
-        // va = PGADDR((uint)d,0,0);
-        pde = &pgdir[(uint)d];
-        if (*pde & PTE_P){
-            for (int t = 0 ; t < pow(2,10) ; t++){
-                // va = PGADDR((uint)d,(uint)t,0);
-                // pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
-                pte = &pgtab[(uint)t];
-                if ((*pte & PTE_P) && !(*pte & PTE_A)){
-                    return pte;
-                }
-            }
-        }
+
+    pte_t *pte ;
+    for (int i = PGSIZE ; i < p->sz ; i+=PGSIZE){
+      pte = walkpgdir(p->pgdir, (void*)i, 0);
+      if ((*pte & PTE_P) && (*pte & ~PTE_A) && (*pte & PTE_U)){
+        return pte;
+      }
     }
+
     int count = 0, found = 0;
-    pte_t* toReturn = NULL;
-    for (int d = 0 ; d < pow(2,10) ; d++){
-        // va = PGADDR((uint)d,0,0);
-        pde = &pgdir[(uint)d];
-        if (*pde & PTE_P){
-            for (int t = 0 ; t < pow(2,10) ; t++){
-                // va = PGADDR((uint)d,(uint)t,0);
-                // pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
-                pte = &pgtab[(uint)t];
-                if ((*pte & PTE_P) && (*pte & PTE_A) && (count%10 == 0)){
-                    if (found == 0){
-                        found = 1;
-                        toReturn = pte;
-                    }
-                    *pte &= ~PTE_A;
-                }
-                count = (count+1)%10;
-            }
+    pte_t* toReturn = 0;
+    // cprintf("making 10 pecent of the pages un-accessed \n");
+    for (int i = 0 ; i < p->sz ; i+=PGSIZE){
+      pte = walkpgdir(p->pgdir, (void*)i, 0);
+      if ((*pte & PTE_P) && (*pte & PTE_A) && (*pte & PTE_U) && (count%10 == 0)){
+        if (found == 0){
+          found = 1;
+          toReturn = pte;
         }
+        *pte &= ~PTE_A;
+      }
+      count = (count+1)%10;
     }
     return toReturn;
+
 }

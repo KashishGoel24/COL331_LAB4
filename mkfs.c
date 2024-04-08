@@ -1,9 +1,8 @@
-#include <stdio.h>
+  #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include "spinlock.h"   // included this here check if there is a bt
 #include <assert.h>
 
 #define stat xv6_stat  // avoid clash with host struct stat
@@ -16,8 +15,6 @@
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
 #endif
 
-#define NINODES 200
-#define NSLOTS 256    // defined the number of swap slots as 256 rn
 
 // Disk layout:
 // [ boot block | sb block | swap block | log | inode blocks | free bit map | data blocks ]
@@ -42,42 +39,6 @@ void rinode(uint inum, struct dinode *ip);
 void rsect(uint sec, void *buf);
 uint ialloc(ushort type);
 void iappend(uint inum, void *p, int n);
-
-struct swap_slot {
-  // add a lock here and acquire it when you are writing the contents to it
-  // release the lock once you have written the contents and updae
-  // struct spinlock lock;
-  int page_perm;
-  int is_free;
-};
-
-struct swap_block {
-  struct spinlock lock;
-  struct swap_slot slots[NSLOTS];
-};
-
-struct swap_block swap_block;
-
-void swapSpaceinit(void){
-  initlock(&swap_block.lock,"swapSpace");
-  // initialise all the swap spaces as free at time of boot
-  for (int i = 0 ; i < NSLOTS ; i++){
-    swap_block.slots[i].is_free = 1;
-  }
-}
-
-int diskBlockNumber(int arrayindex){
-  return 8*arrayindex + 1;    // check if disk blocks are 1 indexed or 0 indexed
-}
-
-int findVacantSwapSlot(void){
-    for (int i = 0 ; i < NSLOTS ; i++){
-      if (swap_block.slots[i].is_free == 1){
-        return i;
-      }
-    }
-    panic("no vacant swap slot found"); // if no slot found -> for debugging
-}
 
 // convert to intel byte order
 ushort
@@ -131,14 +92,15 @@ main(int argc, char *argv[])
   // 1 fs block = 1 disk sector
   nmeta = 2 + nlog + ninodeblocks + nbitmap + NSLOTS*8;  // added nslots*8 here 
   nblocks = FSSIZE - nmeta;
-
+  // printf("fbjksdbfjkd");
   sb.size = xint(FSSIZE);
   sb.nblocks = xint(nblocks);
   sb.ninodes = xint(NINODES);
   sb.nlog = xint(nlog);
-  sb.logstart = xint(2);
-  sb.inodestart = xint(2+nlog);
-  sb.bmapstart = xint(2+nlog+ninodeblocks);
+  // sb.swapstart = xint(2);
+  sb.logstart = xint(2 +  NSLOTS*8);
+  sb.inodestart = xint(2+nlog + NSLOTS*8);
+  sb.bmapstart = xint(2+nlog+ninodeblocks + NSLOTS*8);
 
   printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
          nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);

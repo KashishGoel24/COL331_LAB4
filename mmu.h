@@ -104,7 +104,7 @@ struct segdesc {
 #define PTE_FLAGS(pte)  ((uint)(pte) &  0xFFF)  // end 12 bits 
 
 #ifndef __ASSEMBLER__
-typedef uint pte_t;
+// typedef uint pte_t;
 
 // Task state segment format
 struct taskstate {

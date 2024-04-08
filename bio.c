@@ -20,6 +20,7 @@
 
 #include "types.h"
 #include "defs.h"
+#include "mmu.h"
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"
@@ -34,6 +35,19 @@ struct {
   // head.next is most recently used.
   struct buf head;
 } bcache;
+
+struct swap_slot {
+  // add a lock here and acquire it when you are writing the contents to it
+  // release the lock once you have written the contents and updae
+  // struct spinlock lock;
+  int page_perm;
+  int is_free;
+};
+
+struct swap_block {
+  // struct spinlock lock;
+  struct swap_slot slots[NSLOTS];
+}swap_block;
 
 void
 binit(void)
@@ -93,9 +107,7 @@ bget(uint dev, uint blockno)
 }
 
 // Return a locked buf with the contents of the indicated block.
-struct buf*
-bread(uint dev, uint blockno)
-{
+struct buf* bread(uint dev, uint blockno){
   struct buf *b;
 
   b = bget(dev, blockno);
@@ -106,9 +118,7 @@ bread(uint dev, uint blockno)
 }
 
 // Write b's contents to disk.  Must be locked.
-void
-bwrite(struct buf *b)
-{
+void bwrite(struct buf *b){
   if(!holdingsleep(&b->lock))
     panic("bwrite");
   b->flags |= B_DIRTY;
@@ -117,9 +127,7 @@ bwrite(struct buf *b)
 
 // Release a locked buffer.
 // Move to the head of the MRU list.
-void
-brelse(struct buf *b)
-{
+void brelse(struct buf *b){
   if(!holdingsleep(&b->lock))
     panic("brelse");
 
@@ -145,18 +153,62 @@ brelse(struct buf *b)
 void writeToDisk(uint dev, char* pg, int blockno){
     struct buf *b;
     for (int i = 0; i < 8 ; i++){
-        b = bget(dev, blockno+i);
-        memmove(b->data,pg+i*512,512);   // check if the index pg+i*512 is correct
-        bwrite(b);
-        brelse(b);
+      b = bget(dev, blockno+i);
+      memmove(b->data,pg+(i*512),512);   // check if the index pg+i*512 is correct
+      bwrite(b);
+      brelse(b);
     }
 }
 
 void readFromDiskWriteToMem(uint dev, char *pg, uint blockno){
     struct buf* b;
     for (int i = 0 ; i < 8 ; i++){
-        b = bread(dev,blockno+i);
-        memmove(pg+i*512,b->data,512);
-        brelse(b);
+      b = bread(dev,blockno+i);
+      memmove(pg+(i*512),b->data,512);
+      // bwrite(b);   //*******INCLUDEED********
+      brelse(b);
     }
 }
+
+
+void swapSpaceinit(void){
+  // initlock(&swap_block.lock,"swapSpace");
+  for (int i = 0 ; i < NSLOTS ; i++){
+    swap_block.slots[i].is_free = 1;
+    swap_block.slots[i].page_perm = 0;
+  }
+}
+
+int diskBlockNumber(int arrayindex){
+  return 8*arrayindex + 2;    // check if disk blocks are 1 indexed or 0 indexed
+}
+
+int findVacantSwapSlot(void){
+    for (int i = 0 ; i < NSLOTS ; i++){
+      if (swap_block.slots[i].is_free == 1){
+        return i;
+      }
+    }
+    panic("no vacant swap slot found"); // if no slot found -> for debugging
+}
+
+
+void updateSwapSlot(int diskblock, int isFree, int page_perm){
+  // acquire(&swap_block.lock);
+  swap_block.slots[diskblock].page_perm = page_perm;
+  swap_block.slots[diskblock].is_free = isFree;
+  // cprintf("value of is_free of the swap slot %d \n",swap_block.slots[diskblock].is_free);
+  // release(&swap_block.lock);
+}
+
+void clear_swap_slot(pte_t* page){
+  int block_num = *page >> 12;
+  int swap_blk = (block_num - 2) / 8;
+  swap_block.slots[swap_blk].is_free = 1;
+  
+}
+
+int getPerm(int diskBlock){
+  return swap_block.slots[diskBlock].page_perm;
+}
+

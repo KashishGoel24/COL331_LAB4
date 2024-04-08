@@ -12,6 +12,7 @@ OBJS = \
 	log.o\
 	main.o\
 	mp.o\
+	pageswap.o\
 	picirq.o\
 	pipe.o\
 	proc.o\
@@ -106,7 +107,7 @@ bootblock: bootasm.S bootmain.c
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o bootblock.o bootasm.o bootmain.o
 	$(OBJDUMP) -S bootblock.o > bootblock.asm
 	$(OBJCOPY) -S -O binary -j .text bootblock.o bootblock
-	./sign.pl bootblock
+	perl sign.pl bootblock
 
 entryother: entryother.S
 	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c entryother.S
@@ -119,6 +120,9 @@ initcode: initcode.S
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o initcode.out initcode.o
 	$(OBJCOPY) -S -O binary initcode.out initcode
 	$(OBJDUMP) -S initcode.o > initcode.asm
+
+# vectors.S: vectors.pl
+# 	./vectors.pl > vectors.S
 
 kernel: $(OBJS) entry.o entryother initcode kernel.ld
 	$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother
@@ -221,6 +225,8 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 ifndef CPUS
 CPUS := 1
 endif
+
+# QEMUEXTRA = -no-reboot -d int,cpu_reset
 QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
 
 qemu: fs.img xv6.img
