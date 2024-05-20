@@ -33,7 +33,6 @@ memmove(void *dst, const void *src, uint n)
 {
   const char *s;
   char *d;
-
   s = src;
   d = dst;
   if(s < d && s + n > d){
@@ -44,7 +43,6 @@ memmove(void *dst, const void *src, uint n)
   } else
     while(n-- > 0)
       *d++ = *s++;
-
   return dst;
 }
 

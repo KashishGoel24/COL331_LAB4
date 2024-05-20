@@ -47,6 +47,13 @@ trap(struct trapframe *tf)
   }
 
   switch(tf->trapno){
+  case T_PGFLT:
+    // cprintf("\n entering the page fault handler in trap.c \n");
+    pgfault_handler();
+    lapiceoi();
+    // cprintf("exited from the page fault handler in trap.c\n \n");
+    break;
+    
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);

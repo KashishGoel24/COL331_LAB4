@@ -28,6 +28,7 @@ mem(void)
 	// goto failed;
 	start = m1;
 
+
 	while (cur < TOTAL_MEMORY) {
 		m2 = malloc(4096);
 		if (m2 == 0)
@@ -35,10 +36,13 @@ mem(void)
 		*(char**)m1 = m2;
 		((int*)m1)[2] = count++;
 		// printf(1,"%d\n",sizeof(int));
-		// printf(1, "CurrCount: %d\n", ((int*)m1)[2]);
+		printf(1, "CurrCount: %d\n", ((int*)m1)[2]);
 		m1 = m2;
 		cur += 4096;
 	}
+	printf(1, "Out of here \n");
+	// printf(1, "CurrCount: %d\n", ((int*)m1)[2]);
+	// printf("out of here ");
 
 	((int*)m1)[2] = count;
 	total_count = count;
@@ -47,13 +51,17 @@ mem(void)
 	count = 0;
 	m1 = start;
 
+	printf(1,"entering the 2nd while loop \n");
+	printf(1,"value of the total count is %d \n",total_count);
+
 	while (count != total_count) {
 		if (((int*)m1)[2] != count)
 		{
-			// printf(1, "CurrCount: %d\n", count);
+			printf(1, "CurrCounhfnfhnht: %d %d\n", count, ((int*)m1)[2]);
 			goto failed;
 		}
 		m1 = *(char**)m1;
+		// printf(1, "CurrCounhfnfhnht: %d %d\n", count, ((int*)m1)[2]);
 		count++;
 	}
 	int upt2 = uptime();

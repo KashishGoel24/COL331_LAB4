@@ -45,8 +45,9 @@ int
 holdingsleep(struct sleeplock *lk)
 {
   int r;
-  
+  // cprintf("aaya\n");
   acquire(&lk->lk);
+  // cprintf("nhi nikla\n");
   r = lk->locked && (lk->pid == myproc()->pid);
   release(&lk->lk);
   return r;
